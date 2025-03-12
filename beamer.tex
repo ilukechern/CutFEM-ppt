@@ -1,33 +1,70 @@
-% !TeX TXS-program:compile = txs:///xelatex/[--shell-escape][-8bit]
+% !TEX program = xelatex
 \documentclass[lang=en,aspectratio=43,theme=default,logo=on]{simplebeamer}
 
+\usepackage[utf8]{inputenc}
 % \usepackage{amsmath}
 \usepackage{amsmath,amsfonts,amsthm} % Math packages
 \usepackage{amssymb}%花体字符
 \usepackage[most]{tcolorbox}
 \usepackage{graphicx}
 \usepackage{unicode-math}
-\usepackage[cache=false]{minted}
-\usepackage{newunicodechar}
-\usepackage{color}  %导言区调用color宏包
 
 \setmainfont{EB Garamond} %西文默认衬线字体(serif)
 \setsansfont{Latin Modern Sans} %西文默认无衬线字体(sans serif)
 \setmonofont{Monaco} %西文默认的等宽字体
+\setmathfont{Latin Modern Math}
 
 \usepackage{xeCJK}
 \setCJKmainfont{LXGW WenKai}
-
-\newfontface\mathsymbolfont{Latin Modern Math}
-\newunicodechar{∇}{{\mathsymbolfont\nabla}}
-\newunicodechar{⋅}{{\mathsymbolfont\cdot}}
-\newunicodechar{γ}{{\mathsymbolfont\gamma}}
-\newunicodechar{Γ}{{\mathsymbolfont\Gamma}}
 
 \tcbset{colback=yellow!10!white, colframe=red!50!black,
 	highlight math style= {enhanced, %<-- needed for the ’remember’ options
 		colframe=red,colback=red!10!white,boxsep=0pt}
 }
+
+\usepackage{caption}
+\usepackage[dvipsnames]{xcolor}  % 更全的色系
+\usepackage{listings}  % 排代码用的宏包
+\usepackage[linenumbers=false]{jlcode}
+
+% Change the following line to change the code size inside code boxes
+\def\jlbasicfont{\ttfamily\footnotesize\selectfont}
+
+\lstdefinestyle{code}{
+    language=Julia,
+    % Comment the following three lines to remove colors
+    keywordstyle=\color{blue},
+    commentstyle=\color[RGB]{0,102,0},
+    backgroundcolor=\color[RGB]{255,255,226},
+    % identifierstyle=\color[RGB]{0,102,0},
+    keepspaces=true,
+    numbers=left, % 显示行号在左边
+    % numbersep=0em, % 设置行号的具体位置,
+    showspaces=false,                          % show spaces (with underscores)
+    showstringspaces=false,            % underline spaces within strings
+    showtabs=false,                            % show tabs using underscores
+    frame=single,                  % adds a frame around the code
+    tabsize=4,                     % default tabsize
+    breaklines=true,                  % automatic line breaking
+    breakautoindent=false,
+    columns=fullflexible,
+    xleftmargin=0pt,
+    xrightmargin=0pt,
+    breakindent=0pt,
+    resetmargins=true
+}
+
+\lstnewenvironment{code}{\lstset{style=code}}{}
+
+\lstnewenvironment{codex}[2]
+{
+    \lstset
+    {
+        style=code,
+        firstnumber=#1,
+        caption=#2
+    }
+}{}
 
 \title{CutFEM有限元介绍}
 \author{Luke Chern}
@@ -112,44 +149,38 @@
 
 \begin{frame}[fragile]
     \frametitle{Example 1: 二维泊松方程}
-    \begin{minted}{julia}
-using Gridap
+\begin{codex}{1}{二维泊松方程}
 using GridapGmsh
-
 # 读取网格
 model = GmshDiscreteModel("./src/circle.msh")
 
 Ω = Triangulation(model)
 dΩ = Measure(Ω, 2)
-    \end{minted}
-\end{frame}
 
-\begin{frame}[fragile]
-    \frametitle{Example 1: 二维泊松方程}
-    \begin{minted}{julia}
-# FE space
+# 有限元空间
 reffe = ReferenceFE(lagrangian, Float64, 1)
-V = TestFESpace(model, reffe,
-dirichlet_tags="fixed")
+V = TestFESpace(model, reffe, dirichlet_tags="fixed")
 
 g(x) = 0.0
 U = TrialFESpace(V, g)
-
-f(x) = 1.0
-a(u,v) = ∫( ∇(v)⋅∇(u) )dΩ
-l(v) = ∫( v*f )dΩ
-    \end{minted}
+\end{codex}
 \end{frame}
 
 \begin{frame}[fragile]
     \frametitle{Example 1: 二维泊松方程}
-    \begin{minted}{julia}
-op = AffineFEOperator(a, l, U, V)
+\begin{codex}{14}{二维泊松方程（续）}
+# 定义弱形式
+f(x) = 1.0
+a(u,v) = ∫( ∇(v)⋅∇(u) )dΩ
+l(v) = ∫( v*f )dΩ
 
+# 求解线性方程组
+op = AffineFEOperator(a, l, U, V)
 uh = solve(op)
 
+# 输出结果
 writevtk(Ω, "results", cellfields=["uh"=>uh])
-    \end{minted}
+\end{codex}
 \end{frame}
 
 \begin{frame}{The Nitsche Method}
@@ -171,8 +202,8 @@ writevtk(Ω, "results", cellfields=["uh"=>uh])
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{Example 2: Nitsche法求解}
-    \begin{minted}{julia}
+    \frametitle{Example 2: Nitsche法求解二维泊松方程}
+    \begin{codex}{1}{Nitsche法求解二维泊松方程}
 # 读取网格
 Ω = Triangulation(model)
 dΩ = Measure(Ω, 2)
@@ -181,17 +212,17 @@ dΩ = Measure(Ω, 2)
 dΓd = Measure(Γd, 2)
 n_Γd = get_normal_vector(Γd)
 
-# FE space
+# 有限元空间
 reffe = ReferenceFE(lagrangian, Float64, 1)
 V = TestFESpace(model, reffe, conformity=:H1)
 
 U = TrialFESpace(V)
-    \end{minted}
+\end{codex}
 \end{frame}
 
 \begin{frame}[fragile]
-    \frametitle{Example 2: Nitsche法求解}
-    \begin{minted}{julia}
+    \frametitle{Example 2: Nitsche法求解二维泊松方程}
+\begin{codex}{14}{Nitsche法求解二维泊松方程（续）}
 γd = 10.0
 h = 1.0 / 400
 
@@ -203,7 +234,7 @@ a(u,v) =∫( ∇(v)⋅∇(u) )dΩ +
 
 l(v) =  ∫( v*f )dΩ  +
 ∫( (γd/h)*v*ud - (n_Γd⋅∇(v))*ud ) * dΓd
-    \end{minted}
+\end{codex}
 \end{frame}
 
 \begin{frame}{Example 2: Nitsche法求解}
@@ -250,19 +281,22 @@ l(v) =  ∫( v*f )dΩ  +
 
 \begin{frame}{CutFEM有限元}
     We define the FE-wise operators:
-
     \begin{gather*}%不会产生编号
         \mathcal{A}_K(u,v)\doteq\int_{K\cap \Omega }\nabla u \cdot \nabla v \mathrm{d}V \\
         +\int_{\partial K\cap \Gamma_D}\left(h^{-1}\lambda uv -v(\mathbf{n}\cdot \nabla u)-u(\mathbf{n}\cdot \nabla v) \right) \mathrm{d}S\\
         +\int_{\partial K\cap \Gamma_\mathrm{ghost}}h^{-1}\mu [\![\partial_nu]\!] [\![\partial_nv]\!] \mathrm{d}S
     \end{gather*}
-
     \begin{equation*}
         \mathcal{l}_K(u,v)\doteq \int_{K\cap \Omega }vf \mathrm{d}V + \int_{\partial K\cap \Gamma_D } \left(h^{-1}\lambda vg_D -(\mathbf{n} \cdot \nabla v)g_D)\right) \mathrm{d}S
     \end{equation*}
 
 \end{frame}
 
+\begin{frame}{CutFEM有限元}
+For Neumann boundary conditions, the consequence is that the stiffness matrix can become arbitrarily ill-conditioned as the cut-size approaches zero. \\
+For a Dirichlet condition, the situation is even worse. For any finite choice of Nitsche constant, $\lambda_D$, the bilinear form $a_h(⋅,⋅)$ loses coercivity as the size of a cell cut approaches zero.\\
+This makes the above weak formulation essentially useless because we typically can not control how the cells intersect $\Gamma$. One way to avoid this problem is to add a so-called ghost penalty term, $s_h$, to the weak formulation.
+\end{frame}
 \begin{frame}{CutFEM有限元}
     Given a face $F \in \mathcal{F}^{\mathrm{ghost}}_h$ and the two cells $K$ and $K'$ sharing this face, we define the jump operator
     \[
@@ -275,9 +309,34 @@ l(v) =  ∫( v*f )dΩ  +
     \end{equation*}
 \end{frame}
 
+\begin{frame}{Example 3: CutFEM求解}
+We assume that $\Omega$ is described by a level set function $\psi : \mathbb{R}^{\mathrm{dim}}\rightarrow \mathbb{R}$ such that
+\begin{align*}
+    \Omega &= \{x \in \mathbb{R}^{\text{dim}} : \psi(x) < 0 \}, \\
+    \Gamma &= \{x \in \mathbb{R}^{\text{dim}} : \psi(x) = 0 \}.
+\end{align*}
+For simplicity, we choose Ω to be a unit disk, so that $\psi(x) = \| x \| - 1$. As can be seen from the figure below, the level set function is negative for points in $\Omega$, zero on the boundary, and positive everywhere else.
+\end{frame}
+
+\begin{frame}{Example 3: CutFEM求解}
+    \begin{figure}
+        \centering %居中
+        \begin{minipage}[t]{0.5\linewidth}
+            \centering
+            \includegraphics[height=0.6\textheight]{./img/018.png}
+            \caption{背景网格$\mathcal{T}^h$}
+        \end{minipage}%
+        \begin{minipage}[t]{0.5\linewidth}
+            \centering
+            \includegraphics[height=0.6\textheight]{./img/019.png}
+            \caption{水平集函数$\psi(x)$}
+        \end{minipage}
+    \end{figure}
+\end{frame}
+
 \begin{frame}[fragile]
     \frametitle{Example 3: CutFEM求解}
-    \begin{minted}{julia}
+\begin{code}{1}{CutFEM求解}
 # 1. Build background mesh
 nn = 40
 partition = (nn,nn)
@@ -291,55 +350,135 @@ geo = disk(R, name="csg")
 
 # 3. Cut the background model
 cutgeo = cut(bgmodel,geo)
-    \end{minted}
+\end{code}
 \end{frame}
 
-\begin{frame}[fragile]
-    \frametitle{Example 3: CutFEM求解}
-    \begin{minted}{julia}
-        # 生成计算域
-        Ω = Triangulation(cutgeo,PHYSICAL,"csg")
-        Ω_act = Triangulation(cutgeo,ACTIVE,"csg")
-    \end{minted}
+\begin{frame}{Example 3: CutFEM求解}
+To solve this problem, we want to distribute degrees of freedom over the smallest submesh, $\mathcal{T}_\Omega^h$, that completely covers the domain:
+    \begin{equation*}
+        \mathcal{T}_\Omega^h = \{ T \in \mathcal{T}^{h} : T \cap \Omega \neq \emptyset \}.
+    \end{equation*}
+The finite element space where we want to find our numerical solution, uh, is now
+\begin{equation*}
+    V_\Omega^h = \{ v \in C(\mathcal{N}_\Omega^h) : v \in Q_p(T), \, T \in \mathcal{T}_\Omega^h \},
+\end{equation*}
+where $\mathcal{N}_\Omega^h = \bigcup_{T \in \mathcal{T}_\Omega^h} \overline{T}$.
+\end{frame}
+
+\begin{frame}{Example 3: CutFEM求解}
+To define the ghost penalty, let $\mathcal{T}_\Gamma^h$ be the set of intersected cells:
+\begin{equation*}
+    \mathcal{T}_{\Gamma}^h = \{ T \in \mathcal{T}_{\Omega}^{h} : T \cap \Gamma \neq \emptyset \},
+\end{equation*}
+and let $\mathcal{F}_h$ denote the interior faces of the intersected cells in the active mesh:
+\begin{equation*}
+    \mathcal{F}_h = \{ F = \overline{T}_+ \cap \overline{T}_- : \,
+    T_+ \in \mathcal{T}_{\Gamma}^h, \,
+    T_- \in \mathcal{T}_{\Omega}^h
+    \}.
+\end{equation*}
+\end{frame}
+
+\begin{frame}{Example 3: CutFEM求解}
     \begin{figure}
         \centering %居中
         \begin{minipage}[t]{0.5\linewidth}
             \centering
-            \includegraphics[height=0.5\textheight]{./img/006.png}
-            \caption{物理域$\Omega$}
+            \includegraphics[height=0.6\textheight]{./img/020.png}
         \end{minipage}%
         \begin{minipage}[t]{0.5\linewidth}
             \centering
-            \includegraphics[height=0.5\textheight]{./img/007.png}
-            \caption{求解域$\Omega_{\mathrm{act}}$}
+            \includegraphics[height=0.6\textheight]{./img/021.png}
         \end{minipage}
     \end{figure}
 \end{frame}
 
 \begin{frame}[fragile]
     \frametitle{Example 3: CutFEM求解}
-    \begin{minted}{julia}
-        Γd = EmbeddedBoundary(cutgeo,"csg")
-        Γg = GhostSkeleton(cutgeo,"csg")
-    \end{minted}
-    \begin{figure}
-        \centering %居中
-        \begin{minipage}[t]{0.5\linewidth}
-            \centering
-            \includegraphics[height=0.5\textheight]{./img/011.png}
-            \caption{背景网格$\Omega_{\mathrm{bg}}$}
-        \end{minipage}%
-        \begin{minipage}[t]{0.5\linewidth}
-            \centering
-            \includegraphics[height=0.5\textheight]{./img/010.png}
-            \caption{几何}
-        \end{minipage}
-    \end{figure}
+\begin{code}
+# 生成计算域
+Ω = Triangulation(cutgeo,PHYSICAL,"csg")
+Ω_act = Triangulation(cutgeo,ACTIVE,"csg")
+\end{code}
+\begin{figure}
+    \centering %居中
+    \begin{minipage}[t]{0.5\linewidth}
+        \centering
+        \includegraphics[height=0.5\textheight]{./img/006.png}
+        \caption{物理域$\Omega$}
+    \end{minipage}%
+    \begin{minipage}[t]{0.5\linewidth}
+        \centering
+        \includegraphics[height=0.5\textheight]{./img/007.png}
+        \caption{求解域$\Omega_{\mathrm{act}}$}
+    \end{minipage}
+\end{figure}
 \end{frame}
 
 \begin{frame}[fragile]
     \frametitle{Example 3: CutFEM求解}
-    \begin{minted}{julia}
+\begin{code}
+Γd = EmbeddedBoundary(cutgeo,"csg")
+Γg = GhostSkeleton(cutgeo,"csg")
+\end{code}
+\begin{figure}
+    \centering %居中
+    \begin{minipage}[t]{0.5\linewidth}
+        \centering
+        \includegraphics[height=0.5\textheight]{./img/011.png}
+        \caption{背景网格$\Omega_{\mathrm{bg}}$}
+    \end{minipage}%
+    \begin{minipage}[t]{0.5\linewidth}
+        \centering
+        \includegraphics[height=0.5\textheight]{./img/010.png}
+        \caption{几何}
+    \end{minipage}
+\end{figure}
+\end{frame}
+
+\begin{frame}{Example 3: CutFEM求解}
+The ghost penalty acts on these faces and reads
+\begin{equation*}
+    g_h(u_h,v_h) = \gamma_A \sum_{F \in \mathcal{F}_h} g_F(u_h, v_h),
+\end{equation*}
+where $g_F$ is the face-wise ghost penalty:
+\begin{equation*}
+    g_F(u_h, v_h) = \gamma_A \sum_{k=1}^p \left(\frac{h_F^{2k-1}}{k!^2}[\partial_n^k u_h], [\partial_n^k v_h] \right)_F
+\end{equation*}
+We shall use a continuous space of Q1-elements, so the ghost penalty is reduced to
+\begin{equation*}
+    g_h(u_h,v_h) = \gamma_A \sum_{F \in \mathcal{F}_h} (h_F [\partial_n u_h], [\partial_n v_h])_F
+\end{equation*}
+\end{frame}
+
+\begin{frame}[fragile]{Example 3: CutFEM求解}
+Find $u_h \in V_\Omega^h$ such that
+\begin{equation*}
+    a_h(u_h, v_h) = L_h(v_h), \quad \forall v_h \in V_\Omega^h,
+\end{equation*}
+where
+\begin{align*}
+    a_h(u_h, v_h) &=  (\nabla u_h, \nabla v_h)_\Omega
+    - (\partial_n u_h, v_h)_\Gamma
+    - (u_h, \partial_n v_h)_\Gamma
+    + \left (\frac{\gamma_D}{h} u_h, v_h \right )_\Gamma,
+    \\
+    L_h(v_h)      &=  (f,v)_\Omega
+    + \left (u_D, \frac{\gamma_D}{h} v_h -\partial_n v_h \right )_\Gamma.
+\end{align*}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 3: CutFEM求解}
+This leads to the stabilized cut finite element method, which reads: Find $u_h \in V_\Omega^h$ such that
+\begin{equation*}
+    A_h(u_h, v_h) = L_h(v_h), \quad \forall v_h \in V_\Omega^h,
+\end{equation*}
+where
+\begin{equation*}
+    A_h(u_h,v_h) = a_h(u_h,v_h) + g_h(u_h, v_h).
+\end{equation*}
+\begin{code}
 # 方程弱形式
 a(u,v) = ∫( ∇(v)⋅∇(u) ) dΩ +
 ∫( (γd/h)*v*u  - v*(n_Γd⋅∇(u)) - (n_Γd⋅∇(v))*u ) dΓd +
@@ -347,12 +486,13 @@ a(u,v) = ∫( ∇(v)⋅∇(u) ) dΩ +
 
 l(v) = ∫( v*f ) dΩ +
 ∫( (γd/h)*v*g - (n_Γd⋅∇(v))*g ) dΓd
-    \end{minted}
+\end{code}
 \end{frame}
+
 
 \begin{frame}[fragile]
     \frametitle{Example 4: 一个更复杂的例子}
-    \begin{minted}{julia}
+\begin{code}
 R = 0.5
 geo1 = cylinder(R,v=VectorValue(1,0,0))
 geo2 = cylinder(R,v=VectorValue(0,1,0))
@@ -363,7 +503,7 @@ geo5 = sphere(1)
 geo6 = cube(L=1.5)
 geo7 = intersect(geo6,geo5)
 geo8 = setdiff(geo7,geo4,name="csg")
-    \end{minted}
+\end{code}
 \end{frame}
 
 \begin{frame}[fragile]
@@ -406,11 +546,10 @@ geo8 = setdiff(geo7,geo4,name="csg")
     Let $\Omega$ be a domain in $\mathbb{R}^d$, $d$ = 2 or 3, with boundary $\partial \Omega = \Gamma_D \cup \Gamma_N$, $\Gamma_D \cap \Gamma_N = \varnothing$, and exterior unit normal $\mathbf{n}$. We consider the following problems: \\
     Find the displacement $\mathbf{u} : \Omega \to \mathbb{R}^d$ such that
     \begin{align*}
-        -\nabla \cdot \boldsymbol{\sigma} (\mathbf{u}) &= \mathbf{f} \quad \mathrm{in} \enspace \Omega \\
-        \boldsymbol{\sigma} (\mathbf{u}) \cdot \mathbf{n} &= \mathbf{g}_N \quad \mathrm{on} \enspace \Gamma_N \\
-        \mathbf{u} &= \mathbf{g}_D \quad \mathrm{on} \enspace \Gamma_D
+        -\nabla \cdot \boldsymbol{\sigma} (\mathbf{u}) &= \mathbf{f} &\mathrm{in} \;\Omega \\
+        \boldsymbol{\sigma} (\mathbf{u}) \cdot \mathbf{n} &= \mathbf{T} &\mathrm{on} \; \Gamma_N \\
+        \mathbf{u} &= \mathbf{g} &\mathrm{on} \; \Gamma_D
     \end{align*}
-
     where the strain and stress tensors are defined by
     \begin{align*}
         \boldsymbol{\varepsilon} (\mathbf{u}) &\doteq \dfrac{1}{2} \left( \nabla \cdot \mathbf{u} + (\nabla \cdot \mathbf{u} )^{\mathrm{T}} \right) \\
@@ -421,18 +560,91 @@ geo8 = setdiff(geo7,geo4,name="csg")
 \end{frame}
 
 \begin{frame}{线弹性有限元}
-    Let $\mathbf{V}_g = \left\{ \mathbf{u} \in \mathbf{H}^1(\Omega) : \mathbf{u} = \mathbf{g} \; \mathrm{on} \; \Gamma_N\right\}$, and define the bilinear form
+    Let $\mathbf{V}_g = \left\{ \mathbf{u} \in \mathbf{H}^1(\Omega) : \mathbf{u} = \mathbf{g} \; \mathrm{on} \; \Gamma_D\right\}$, and define the bilinear form
     \begin{equation*}
         a(\mathbf{u},\mathbf{v})=2\mu \left( \boldsymbol{\varepsilon}(\mathbf{u}), \boldsymbol{\varepsilon}(\mathbf{v})\right)_\Omega + \lambda \left( \mathrm{tr}(\boldsymbol{\varepsilon}(\mathbf{u})), \mathrm{tr}(\boldsymbol{\varepsilon}(\mathbf{v}))\right)_\Omega
     \end{equation*}
     Find such that
     \begin{equation*}
-        a(\mathbf{u}, \mathbf{v})=l(\mathbf{v}), \quad \forall \mathbf{v} \in \mathbf{V_0}
+        a(\mathbf{u}, \mathbf{v})=l(\mathbf{v}), \quad \forall \mathbf{v} \in \mathbf{V}_0
     \end{equation*}
     where the linear form on right hand side is defined by
     \begin{equation*}
-        l(\mathbf{v})=\left( \mathbf{f} , \mathbf{v}\right)_\Omega + \left( \mathbf{g}_N , \mathbf{v}\right)_{\Gamma_N}
+        l(\mathbf{v})=\left( \mathbf{f} , \mathbf{v}\right)_\Omega + \left( \mathbf{T} , \mathbf{v}\right)_{\Gamma_N}
     \end{equation*}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 5: 悬臂梁}
+\begin{codex}{1}{悬臂梁}
+using Gridap
+using GridapGmsh
+
+# 读取网格文件
+model = GmshDiscreteModel("./src/beam.msh")
+\end{codex}
+\begin{figure}
+    \centering %居中
+    \includegraphics[width=1.0\textwidth]{./img/015.png}
+    \caption{网格划分}
+\end{figure}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 5: 悬臂梁}
+\begin{codex}{6}{悬臂梁}
+# 参考单元
+order = 1
+reffe = ReferenceFE(lagrangian,VectorValue{3,Float64},order)
+
+V = TestFESpace(model,reffe; conformity=:H1,
+dirichlet_tags=["fixed"],
+dirichlet_masks=[(true,true,true)])
+
+g(x) = VectorValue(0.0,0.0,0.0)
+U = TrialFESpace(V, g)
+
+degree = 2*order
+Ω = Triangulation(model)
+dΩ = Measure(Ω,degree)
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 5: 悬臂梁}
+\begin{codex}{20}{悬臂梁}
+# 材料参数及本构关系
+const E = 210.0
+const ν = 0.3
+const λ = (E*ν)/((1+ν)*(1-2*ν))
+const μ = E/(2*(1+ν))
+
+σ(ε) = λ*tr(ε)*one(ε) + 2*μ*ε
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 5: 悬臂梁}
+\begin{codex}{27}{悬臂梁}
+# 弱形式
+a(u,v) = ∫( ε(v) ⊙ (σ $\circ$ ε(u)) )dΩ
+
+f(x) = VectorValue(0.0,-9.8,0.0)
+l(v) = ∫(v ⋅ f)dΩ
+
+# 求解及输出结果
+op = AffineFEOperator(a,l,U,V)
+uh = solve(op)
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 5: 悬臂梁}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[width=1\textwidth]{./img/016.png}
+        \caption{一般方法}
+    \end{figure}
 \end{frame}
 
 \begin{frame}{线弹性有限元}
@@ -454,11 +666,215 @@ geo8 = setdiff(geo7,geo4,name="csg")
     \end{equation*}
     where the right hand side is given by
     \begin{equation*}
-        \mathcal{L}_h(\mathbf{v})=\left( \mathbf{f} , \mathbf{v}\right)_\Omega + \left( \mathbf{g}_N , \mathbf{v}\right)_{\Gamma_N} - \left( \mathbf{g}_D, \boldsymbol{\sigma}(\mathbf{v}) \cdot \mathbf{n} \right)_{\Gamma_D} + \beta h^{-1}b_h\left(\mathbf{g}_D, \mathbf{v}  \right)_{\Gamma_D}.
+        \mathcal{L}_h(\mathbf{v})=\left( \mathbf{f} , \mathbf{v}\right)_\Omega + \left( \mathbf{T} , \mathbf{v}\right)_{\Gamma_N} - \left( \mathbf{g}, \boldsymbol{\sigma}(\mathbf{v}) \cdot \mathbf{n} \right)_{\Gamma_D} + \beta h^{-1}b_h\left(\mathbf{g}, \mathbf{v}  \right)_{\Gamma_D}.
     \end{equation*}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 6: Nitsche法求解悬臂梁}
+\begin{codex}{1}{悬臂梁}
+Ω = Triangulation(model)
+dΩ = Measure(Ω, 2)
+
+Γd = BoundaryTriangulation(model, tags="fixed")
+dΓd = Measure(Γd, 2)
+n_Γd = get_normal_vector(Γd)
+
+# 参考单元
+order = 1
+reffe = ReferenceFE(lagrangian, VectorValue{3,Float64}, order)
+
+V = TestFESpace(model, reffe; conformity=:H1)
+U = TrialFESpace(V)
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 6: Nitsche法求解悬臂梁}
+\begin{code}
+β = 100
+h = 1.0 / 400
+
+b(v, w) = 2 * μ * ∫(v ⋅ w)dΓd + λ * ∫((v ⋅ n_Γd) * (w ⋅ n_Γd))dΓd
+# 弱形式
+a(u, v) = ∫(ε(v) ⊙ (σ ∘ ε(u)))dΩ - ∫(v ⋅ (σ ∘ ε(u)) ⋅ n_Γd)dΓd - ∫(u ⋅ (σ ∘ ε(v)) ⋅ n_Γd)dΓd + β / h * b(u, v)
+
+f(x) = VectorValue(0.0, -9.8, 0.0)
+g(x) = VectorValue(0.0, 0.0, 0.0)
+l(v) = ∫(v ⋅ f)dΩ - ∫(g ⋅ (σ ∘ ε(v)) ⋅ n_Γd)dΓd + β / h * b(g, v)
+
+# 求解及输出结果
+op = AffineFEOperator(a, l, U, V)
+uh = solve(op)
+\end{code}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 6: Nitsche法求解悬臂梁}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[width=1\textwidth]{./img/017.png}
+        \caption{Nitsche法}
+    \end{figure}
+\end{frame}
+
+\begin{frame}{线弹性有限元}
+Let $\mathcal{F}(\partial \Omega)$ in be the set of interior faces that belongs to an element $K$ such
+that $K\cap \partial \Omega \neq \varnothing $, and define the stabilization form
+\begin{equation*}
+    j_{h}(\boldsymbol{v}, \boldsymbol{w})=\sum_{F \in \mathcal{F}_{h}(\partial \Omega)} \sum_{l=1}^{p} h^{2 l+1}\left(\left[D_{\boldsymbol{n}_{F}}^{l} \boldsymbol{v}\right],\left[D_{\boldsymbol{n}_{F}}^{l} \boldsymbol{w}\right]\right)_{F}
+\end{equation*}
+where $D_{\mathbf{n}_F}^l$ is the $l$:th partial derivative in the direction of the normal $\mathbf{n}_F$ to the face $F \in \mathcal{F}(\partial \Omega)$ and $[·]$ denotes the jump in a discontinuous function at $F$.
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 7: 悬臂梁}
+ \begin{lstlisting}[caption={Gmsh生成网格}, firstnumber=1, numbers=left, xleftmargin=0.0\linewidth]
+SetFactory("OpenCASCADE");
+Rectangle(1) = {0, 0, 0, 8, 1, 0};
+
+x = 0.0; y = 0.5; r = 0.3;
+For i In {1:7}
+    x += 1.0;
+    Circle(4+i) = {x, y, 0, r, 0, 2*Pi};
+    Curve Loop(1+i) = {4+i};
+    Plane Surface(1+i) = {1+i};
+EndFor
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 7: 悬臂梁}
+\begin{lstlisting}[caption={Gmsh生成网格（续）}, firstnumber=11, numbers=left, xleftmargin=0.0\linewidth]
+BooleanDifference(9) = { Surface{1}; Delete; }{ Surface{2}; Delete; };
+
+For i In {1:6}
+    BooleanDifference(9+i) = { Surface{8+i}; Delete; }{ Surface{2+i}; Delete; };
+EndFor
+
+Physical Surface("domain", 16) = {15};
+Physical Curve("fixed", 17) = {2};
+Physical Curve("force", 18) = {3};
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Example 7: 悬臂梁}
+    \begin{figure}
+        \centering
+        \includegraphics[width=1.0\textwidth]{./img/023.png}
+        \caption{网格划分}
+    \end{figure}
+    \begin{figure}
+        \centering
+        \includegraphics[width=1.0\textwidth]{./img/022.png}
+        \caption{分析结果}
+    \end{figure}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求解悬臂梁}
+    \begin{codex}{1}{定义几何}
+bgmodel = GmshDiscreteModel("./src/beam2ds.msh")
+
+R = 0.3; x = 0.0; y = 0.5
+csg = disk(R,x0=Point(x+1,y))
+
+for dx in range(2,7)
+    local geo = disk(R,x0=Point(x+dx,y))
+
+    global csg = union(csg, geo, name="csg")
+end
+
+cutgeo = cut(bgmodel, !(csg, name="csg"))
+    \end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求解悬臂梁}
+\begin{codex}{1}{定义网格}
+# 1. 物理网格
+Ω = Triangulation(cutgeo,PHYSICAL,"csg")
+dΩ = Measure(Ω, 2)
+
+# 2. Active网格
+Ω_act = Triangulation(cutgeo,ACTIVE,"csg")
+
+# 3. Dirichlet边界条件
+Γd = BoundaryTriangulation(bgmodel, tags="fixed")
+dΓd = Measure(Γd, 2)
+
+# 4. Neumann边界条件
+Γf = BoundaryTriangulation(bgmodel, tags="force")
+dΓf = Measure(Γf, 2)
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求解悬臂梁}
+\begin{codex}{15}{定义网格}
+# 5. 嵌入边界
+Γ = EmbeddedBoundary(cutgeo,"csg")
+dΓ = Measure(Γ, 2)
+
+# 6. Ghost边界
+Γg = GhostSkeleton(cutgeo,"csg")
+dΓg = Measure(Γg, 2)
+n_Γg = get_normal_vector(Γg)
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求解悬臂梁}
+\begin{codex}{15}{有限元空间}
+order = 1
+reffe = ReferenceFE(lagrangian,VectorValue{2,Float64},order)
+V = TestFESpace(Ω_act, reffe, conformity=:H1, dirichlet_tags=["fixed"])
+
+# Dirichlet values
+u0 = VectorValue(0,0)
+U = TrialFESpace(V,[u0])
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求解悬臂梁}
+\begin{codex}{15}{定义弱形式}
+# 物理参数
+const E = 210.0; const ν = 0.3
+const λ = (E*ν)/((1+ν)*(1-2*ν))
+const μ = E/(2*(1+ν))
+
+σ(ε) = λ*tr(ε)*one(ε) + 2*μ*ε
+
+# 定义弱形式
+γg = 10.0; h = 1.0/400
+a(u,v) = ∫( ε(v) ⊙ (σ∘ε(u)) )dΩ + ∫( (γg*h)*jump(∇(v)⋅n_Γg)⋅jump(∇(u)⋅n_Γg) ) * dΓg
+
+T(x) = VectorValue(0.0,-1e3);
+l(v) = ∫(v ⋅ T)dΓf
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求解悬臂梁}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[width=1\textwidth]{./img/025.png}
+        \caption{网格划分}
+    \end{figure}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[width=1\textwidth]{./img/024.png}
+        \caption{分析结果}
+    \end{figure}
 \end{frame}
 
 \section{Part IV: 杂项}
 \section{Part V: 项目规划}
+
+\begin{frame}
+    \centering
+    \huge 结束 Q \& A
+\end{frame}
 
 \end{document}

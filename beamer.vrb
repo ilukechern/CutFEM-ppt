@@ -1,14 +1,11 @@
-\frametitle{Example 4: 一个更复杂的例子}
+\frametitle{Example 8: CutFEM求解悬臂梁}
     \begin{figure}
         \centering %居中
-        \begin{minipage}[t]{0.5\linewidth}
-            \centering
-            \includegraphics[height=0.5\textheight]{./img/012.png}
-            \caption{背景网格}
-        \end{minipage}%
-        \begin{minipage}[t]{0.5\linewidth}
-            \centering
-            \includegraphics[height=0.5\textheight]{./img/014.png}
-            \caption{边界条件}
-        \end{minipage}
+        \includegraphics[width=1\textwidth]{./img/025.png}
+        \caption{网格划分}
+    \end{figure}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[width=1\textwidth]{./img/024.png}
+        \caption{分析结果}
     \end{figure}
