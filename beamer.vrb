@@ -1,0 +1,14 @@
+\frametitle{Example 4: 一个更复杂的例子}
+    \begin{figure}
+        \centering %居中
+        \begin{minipage}[t]{0.5\linewidth}
+            \centering
+            \includegraphics[height=0.5\textheight]{./img/012.png}
+            \caption{背景网格}
+        \end{minipage}%
+        \begin{minipage}[t]{0.5\linewidth}
+            \centering
+            \includegraphics[height=0.5\textheight]{./img/014.png}
+            \caption{边界条件}
+        \end{minipage}
+    \end{figure}
