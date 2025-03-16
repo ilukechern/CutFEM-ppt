@@ -11,7 +11,7 @@
 
 \setmainfont{EB Garamond} %西文默认衬线字体(serif)
 \setsansfont{Latin Modern Sans} %西文默认无衬线字体(sans serif)
-\setmonofont{Monaco} %西文默认的等宽字体
+\setmonofont{JuliaMono} %西文默认的等宽字体
 \setmathfont{Latin Modern Math}
 
 \usepackage{xeCJK}
@@ -25,7 +25,7 @@
 \usepackage{caption}
 \usepackage[dvipsnames]{xcolor}  % 更全的色系
 \usepackage{listings}  % 排代码用的宏包
-\usepackage[linenumbers=false]{jlcode}
+\usepackage{jlcode}
 
 % Change the following line to change the code size inside code boxes
 \def\jlbasicfont{\ttfamily\footnotesize\selectfont}
@@ -40,6 +40,7 @@
     keepspaces=true,
     numbers=left, % 显示行号在左边
     % numbersep=0em, % 设置行号的具体位置,
+    captionpos=b,
     showspaces=false,                          % show spaces (with underscores)
     showstringspaces=false,            % underline spaces within strings
     showtabs=false,                            % show tabs using underscores
@@ -870,8 +871,367 @@ l(v) = ∫(v ⋅ T)dΓf
 \end{frame}
 
 \section{Part IV: 杂项}
+
+\begin{frame}{Interface问题}
+We have the following interface conditions on $\Gamma_{12}$
+\begin{align*}
+    \left[\mathbf{u}\right] &=0 \quad \mathrm{on} \; \Gamma_{12} \\
+    \left[\boldsymbol{\sigma}(\mathbf{u})\cdot \mathbf{n} \right] &=0 \quad \mathrm{on} \; \Gamma_{12}
+\end{align*}
+\begin{figure}
+\centering %居中
+\includegraphics[height=0.4\textheight]{./img/026.png}
+\caption{Illustration of compound body consisting of two subdomains $\Omega_1$ and $\Omega_2$ joined at the interface $\Gamma_{12}=\partial \Omega_1 \cap \partial \Omega_2$ with prescribed normal $\mathbf{n} = \mathbf{n}_{\partial \Omega_1}$}
+\end{figure}
+\end{frame}
+
+\begin{frame}{Interface问题}
+With integration by parts, we have the following interface term
+\begin{equation*}
+I_{12}=-\left( \bm{\sigma} \cdot \mathrm{n}_{\partial \Omega_1}, \mathbf{v} \right)_{\partial \Omega_1 \cap \Gamma_{12}} - \left( \bm{\sigma} \cdot \mathrm{n}_{\partial \Omega_2}, \mathbf{v} \right)_{\partial \Omega_2 \cap \Gamma_{12}}
+\end{equation*}
+From this term and the interface conditions, we derive Nitsche’s method for
+the interface condition via the calculation
+\begin{align*}
+    I_{12} &= -\left( \bm{\sigma}(\mathbf{u}) \cdot \mathbf{n}, \mathbf{v} \right)_{\partial \Omega_1 \cap \Gamma_{12}} + \left( \bm{\sigma} (\mathbf{u}) \cdot \mathbf{n}, \mathbf{v} \right)_{\partial \Omega_2 \cap \Gamma_{12}}\\
+    &= -\left( \bm{\sigma} (\mathbf{u}) \cdot \mathbf{n} - \color{red}[\sigma(\mathbf{u})\cdot \mathbf{n}]/2 \color{black}, \mathbf{v} \right)_{\partial \Omega_1 \cap \Gamma_{12}} + \left( \bm{\sigma} (\mathbf{u}) \cdot \mathbf{n} - \color{red} [\sigma(\mathbf{u})\cdot \mathbf{n}]/2 \color{black}, \mathbf{v} \right)_{\partial \Omega_2 \cap \Gamma_{12}}\\
+    &=-\left( \bm{\sigma} (\mathbf{u}) \cdot \mathbf{n} - [\sigma(\mathbf{u})\cdot \mathbf{n}]/2, [\mathbf{v}] \right)_{\Gamma_{12}}\\
+    &=-\left( \langle \bm{\sigma} (\mathbf{u}) \cdot \mathbf{n} \rangle, [\mathbf{v}] \right)_{\Gamma_{12}} \color{blue} -\left( [\mathbf{u}], \langle \bm{\sigma} (\mathbf{v}) \cdot \mathbf{n} \rangle \right)_{\Gamma_{12}} \color{red} + \gamma_D h^{-1}\left( [\mathbf{u}],  [\mathbf{v}] \right)_{\Gamma_{12}}
+\end{align*}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求接口问题}
+\begin{codex}{1}{定义背景网格}
+# 1. Build background model
+L = VectorValue(3,2,3)
+partition = (L[1]*n,L[2]*n,L[3]*n)
+pmin = Point(0.,0.,0.)
+pmax = pmin + L
+bgmodel = CartesianDiscreteModel(pmin,pmax,partition)
+Ω_bg = Triangulation(bgmodel)
+
+# Identify Dirichlet boundaries
+labeling = get_face_labeling(bgmodel)
+add_tag_from_tags!(labeling,"support0",[1,3,5,7,13,15,17,19,25])
+add_tag_from_tags!(labeling,"support1",[2,4,6,8,14,16,18,20,26])
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求接口问题}
+\begin{codex}{13}{定义几何}
+# 2. Define geometry
+R = 0.4
+δ = 0.3 + R
+pmid = 0.5*(pmax+pmin)
+
+geo1 = cylinder(R,x0=Point(0.0,pmid[2],pmin[3]+δ))
+geo2 = cylinder(R,x0=Point(0.0,pmid[2],pmax[3]-δ))
+
+geo3 = union(geo1,geo2,name="steel")
+geo4 = !(geo3,name="concrete")
+
+# Cut the background model
+cutgeo = cut(bgmodel,union(geo3,geo4))
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求接口问题}
+\begin{codex}{26}{积分区域}
+# 3. Setup interpolation mesh
+Ω1_act = Triangulation(cutgeo,ACTIVE,"steel")
+Ω2_act = Triangulation(cutgeo,ACTIVE,"concrete")
+
+# Setup integration meshes
+Ω1 = Triangulation(cutgeo,PHYSICAL,"steel")
+Ω2 = Triangulation(cutgeo,PHYSICAL,"concrete")
+
+Γ = EmbeddedBoundary(cutgeo,"steel","concrete")
+# Setup normal vectors
+n_Γ = get_normal_vector(Γ)
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求接口问题}
+\begin{codex}{37}{定义材料参数}
+# 4. Define material
+# Material parameters 1
+E1 = 4.0
+ν1 = 0.2
+λ1, μ1 = lame_parameters(E1,ν1)
+σ1(ε) = λ1*tr(ε)*one(ε) + 2*μ1*ε
+
+# Material parameters 2
+E2 = 1.0
+ν2 = 0.2
+λ2, μ2 = lame_parameters(E2,ν2)
+σ2(ε) = λ2*tr(ε)*one(ε) + 2*μ2*ε
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求接口问题}
+\begin{codex}{49}{定义有限元空间}
+# 5. Setup Lebesgue measures
+order = 1
+degree = 2*order
+dΩ1 = Measure(Ω1,degree)
+dΩ2 = Measure(Ω2,degree)
+dΓ = Measure(Γ,degree)
+
+# 6. Setup FESpace
+V1 = TestFESpace(Ω1_act,
+ReferenceFE(lagrangian,VectorValue{3,Float64},order), conformity=:H1, dirichlet_tags=["support0","support1"])
+
+V2 = TestFESpace(Ω2_act, ReferenceFE(lagrangian,VectorValue{3,Float64},order), conformity=:H1, dirichlet_tags=["support0","support1"])
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求接口问题}
+\begin{codex}{61}{定义有限元空间（续）}
+# Dirichlet values
+u0 = VectorValue(0,0,0)
+u1 = VectorValue(0.0,0.0,-0.001)
+
+U1 = TrialFESpace(V1,[u0,u1])
+U2 = TrialFESpace(V2,[u0,u1])
+
+V = MultiFieldFESpace([V1,V2])
+U = MultiFieldFESpace([U1,U2])
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求接口问题}
+\begin{codex}{70}{定义Jump和Mean函数}
+# Setup stabilization parameters
+meas_K1 = get_cell_measure(Ω1, Ω_bg)
+meas_K2 = get_cell_measure(Ω2, Ω_bg)
+meas_KΓ = get_cell_measure(Γ, Ω_bg)
+
+γ_hat = 2
+κ1 = CellField( (E2*meas_K1) ./ (E2*meas_K1 .+ E1*meas_K2), Ω_bg)
+κ2 = CellField( (E1*meas_K2) ./ (E2*meas_K1 .+ E1*meas_K2), Ω_bg)
+β  = CellField( (γ_hat*meas_KΓ) ./ ( meas_K1/E1 .+ meas_K2/E2 ), Ω_bg)
+
+# Jump and mean operators for this formulation
+jump_u(u1,u2) = u1 - u2
+mean_t(u1,u2) = κ1*(σ1∘ε(u1)) + κ2*(σ2∘ε(u2))
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求接口问题}
+界面$\Gamma_{12}$处的惩罚项：
+\begin{equation*}
+T_{12} = -\left( \langle \bm{\sigma} (\mathbf{u}) \cdot \mathbf{n} \rangle, [\mathbf{v}] \right)_{\Gamma_{12}} -\left( [\mathbf{u}], \langle \bm{\sigma} (\mathbf{v}) \cdot \mathbf{n} \rangle \right)_{\Gamma_{12}} + \gamma_D h^{-1}\left( [\mathbf{u}],  [\mathbf{v}] \right)_{\Gamma_{12}}
+\end{equation*}
+\begin{codex}{83}{定义弱形式}
+# 6. Weak form
+a((u1,u2),(v1,v2)) =
+∫( ε(v1) ⊙ (σ1∘ε(u1)) ) * dΩ1 + ∫( ε(v2) ⊙ (σ2∘ε(u2)) ) * dΩ2 + ∫( β*jump_u(v1,v2)⋅jump_u(u1,u2)-n_Γ⋅mean_t(u1,u2)⋅jump_u(v1,v2) - n_Γ⋅mean_t(v1,v2)⋅jump_u(u1,u2) ) * dΓ
+
+l((v1,v2)) = 0
+\end{codex}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{Example 8: CutFEM求接口问题}
+\begin{codex}{88}{求解及输出分析结果}
+# 7. FE problem
+op = AffineFEOperator(a,l,U,V)
+uh1, uh2 = solve(op)
+uh = (uh1,uh2)
+
+# 8. Postprocess
+if outputfile !== nothing
+    writevtk(Ω1,"$(outputfile)_steel",cellfields=["uh"=>uh1,"sigma"=>σ1∘ε(uh1)])
+    writevtk(Ω2,"$(outputfile)_concrete",cellfields=["uh"=>uh2,"sigma"=>σ2∘ε(uh2)])
+end
+\end{codex}
+\end{frame}
+
+\begin{frame}{Example 8: CutFEM求接口问题}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[height=0.8\textheight]{./img/027.png}
+        \caption{网格划分}
+    \end{figure}
+\end{frame}
+
+\begin{frame}{Example 8: CutFEM求接口问题}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[height=0.7\textheight]{./img/028.png}
+        \caption{区域1分析结果}
+    \end{figure}
+\end{frame}
+
+\begin{frame}{Example 8: CutFEM求接口问题}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[height=0.7\textheight]{./img/029.png}
+        \caption{区域2分析结果}
+    \end{figure}
+\end{frame}
+
 \section{Part V: 项目规划}
 
+\begin{frame}[fragile]
+    \frametitle{项目规划}
+系统计划采用C/S架构设计，其中：
+\begin{itemize}
+    \item 客户端运行在Windows系统，采用C\verb|#|语言开发(界面与操作逻辑仿效PrePoMax)，主要负责有限元分析的前处理和后处理；
+    \item 服务端安装在运行Linux操作系统的边缘计算盒子中，主要负责调用有限元求解器。
+\end{itemize}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[height=0.4\textheight]{./img/031.png}
+        \caption{软件架构}
+    \end{figure}
+\end{frame}
+
+\begin{frame}{PrePoMax前后处理程序}
+    PrePoMax is an open-source pre and post-processor for the \textcolor{red}{Calculix} FEM solver based on a modern user interface to speed up the FEM workflow. \\
+    \begin{figure}
+        \centering %居中
+        \includegraphics[height=0.5\textheight]{./img/prepomax.png}
+        \caption{PrePoMax操作界面}
+    \end{figure}
+\end{frame}
+
+%\begin{frame}{PrePoMax前后处理程序}
+%    With the program, we can solve linear and non-linear (geometry, material, contact) \textbf{2D} and \textbf{3D static analyses}, \textbf{buckling} and \textbf{vibration analyses} or basic \textbf{thermal analyses}. \\
+%    The program has a geometry importer and an in-built \textcolor{red}{NetGen} mesher, which can be used to create shell and solid meshes (tetrahedral only); a hexahedral mesh can be imported into the program (e.g. generated in \textcolor{red}{Salome} or \textcolor{red}{Gmsh}).
+%\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{客户端}
+客户端的开发语言采用C\verb|#|，其界面与软件架构借鉴PrePoMax，主要区别如下：
+\begin{itemize}
+    \item 不同于PrePoMax采用ActiViz.NET作为后处理的显示控件，我们采用Eyeshot FEM作为显示控件；几何核心采用Eyeshot，网格划分采用Gmsh。
+\end{itemize}
+ \begin{figure}
+    \centering %居中
+    \includegraphics[height=0.5\textheight]{./img/fem.png}
+    \caption{Eyeshot FEM控件}
+\end{figure}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{客户端}
+    客户端主要功能如下：
+    \begin{itemize}
+        \item \textbf{几何操作：} 简单的几何建模功能及中间格式step文件导入；
+        \item \textbf{前处理：} 材料定义及管理、边界条件施加、载荷定义等；
+        \item \textbf{网格划分：} Physical Group定义、调用Gmsh进行网格划分；
+        \item \textbf{切削区域定义：} 采用隐式方法定义切削区域；
+        \item \textbf{后处理：} 分析结果展示、位移/应力/应变提取等。
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{服务端}
+    服务端运行Ubuntu操作系统，主要功能如下：
+    \begin{itemize}
+        \item \textbf{有限元求解器：} 支持静力学线弹性分析，内置CutFEM有限元算法；
+        \item \textbf{简单后处理：} 提供一个简单的用户界面（Dashboard），可以提交任务、监控执行情况，以及查看分析结果等。
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{服务端——有限元求解器}
+    有限元求解器（LinearElasticitySolver，简称LES)采用C++开发，其内核封装以下两种支持CutFEM的有限元库：
+    \begin{itemize}
+        \item \textbf{Gridap.jl：} Gridap provides a set of tools for the grid-based approximation of partial differential equations (PDEs) written in the Julia programming language.
+        \item \textbf{NgSolve：} Netgen/NGSolve is a high performance multiphysics finite element software.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{服务端——Dashboard}
+    \textcolor{red}{Trame}是由开发VTK和ParaView的Kitware公司最新发布的Web框架，该框架采用Python语言，可以将原先pyQt开发的桌面程序迁移到Web端，提供接口丰富的数据可视化功能。
+     \begin{figure}
+        \centering %居中
+        \includegraphics[height=0.5\textheight]{./img/trame.jpg}
+        \caption{Eyeshot FEM控件}
+    \end{figure}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{技术路线图}
+    开发工作的技术路线图：
+    \begin{itemize}
+        \item \textbf{开发客户端：}  调研Eyeshot FEM控件，设计软件界面，规划操作逻辑，集成Gmsh网格划分，进行后继详细的功能开发和调试
+        \item \textbf{开发有限元求解器：}  一般有限元 -> CutFEM
+        \item \textbf{开发Dashbord}
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{目前亟待解决的问题}
+    目前亟待解决的问题：
+        \begin{itemize}
+        \item 购买Eyeshot FEM模块授权
+        \item 敲定边缘计算盒子硬件配置
+        \item 实验平台搭建，对有限元算法进行初步验证
+        \item 协调隐函数的定义方式
+    \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
+    \frametitle{水平集方法}
+     水平集是跟踪轮廓和表面运动的一种数字化方法，它不直接对轮廓进行操作，而是将轮廓设置成一个高维函数的零水平集。\\
+     In two dimensions, the curve $\displaystyle \Gamma$ is represented as the zero-level set of $\displaystyle \varphi$ by
+     \begin{equation*}
+         \displaystyle \Gamma =\{(x,y)\mid \varphi (x,y)=0\}
+     \end{equation*}
+     and the level-set method manipulates $\displaystyle \Gamma$ implicitly through the function $\displaystyle \varphi $. The dynamic motion of the boundary is governed by the so-called, level set equation:
+     \begin{equation*}
+         \frac{\partial \phi }{\partial t} = v_n | \nabla \phi |
+     \end{equation*}
+     Where, $v_n$ is the normal velocity and $|\nabla \phi|$ is the norm of the gradient of the level set function.
+\end{frame}
+
+\begin{frame}[fragile]
+    This function $\displaystyle \varphi$ is assumed to take positive values inside the region delimited by the curve $\displaystyle \Gamma$ and negative values outside.
+    \begin{equation*}
+        \begin{array}{cc} \phi (x) > 0\text{     :  }x \in \Omega / \partial \Omega  \\ \phi (x) = 0\text{     :  }x \in \partial \Omega \text{     } \\ \phi (x) < 0\text{     :  }x \in D/ \Omega  \\  \end{array}
+    \end{equation*}
+    \begin{figure}
+        \centering %居中
+        \includegraphics[height=0.5\textheight]{./img/Level-set-method-for-topology-optimization.png}
+        \caption{水平集函数}
+    \end{figure}
+\end{frame}
+
+\begin{frame}
+If geometries are represented as level sets, Boolean operations can be expressed as simple operations on the corresponding LS functions. \\
+Union:
+\begin{equation*}
+    \mathcal{M}_A ={\mathcal{M}}_B \cup {\mathcal{M}}_C \Leftrightarrow {\Phi}_A =\min({\Phi}_B,{\Phi}_C)
+\end{equation*}
+
+Intersection:
+\begin{equation*}
+  {\mathcal{M}}_A ={\mathcal{M}}_B \cap {\mathcal{M}}_C \Leftrightarrow {\Phi}_A =\max({\Phi}_B,{\Phi}_C)
+\end{equation*}
+
+Complement:
+\begin{equation*}
+    {\mathcal{M}}_A	=\mathbb{R}^{D}\setminus{\mathcal{M}}_B \Leftrightarrow {\Phi}_A \displaystyle =-{\Phi}_B
+\end{equation*}
+
+Relative complement:
+\begin{equation*}
+    {\mathcal{M}}_A ={\mathcal{M}}_B\setminus {\mathcal{M}}_C \Leftrightarrow \displaystyle {\Phi}_A =\max({\Phi}_B,-{\Phi}_C)
+\end{equation*}
+
+\end{frame}
 \begin{frame}
     \centering
     \huge 结束 Q \& A

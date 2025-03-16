@@ -1,11 +1,9 @@
-\frametitle{Example 8: CutFEM求解悬臂梁}
+This function $\displaystyle \varphi$ is assumed to take positive values inside the region delimited by the curve $\displaystyle \Gamma$ and negative values outside.
+    \begin{equation*}
+        \begin{array}{cc} \phi (x) > 0\text{     :  }x \in \Omega / \partial \Omega  \\ \phi (x) = 0\text{     :  }x \in \partial \Omega \text{     } \\ \phi (x) < 0\text{     :  }x \in D/ \Omega  \\  \end{array}
+    \end{equation*}
     \begin{figure}
         \centering %居中
-        \includegraphics[width=1\textwidth]{./img/025.png}
-        \caption{网格划分}
-    \end{figure}
-    \begin{figure}
-        \centering %居中
-        \includegraphics[width=1\textwidth]{./img/024.png}
-        \caption{分析结果}
+        \includegraphics[height=0.5\textheight]{./img/Level-set-method-for-topology-optimization.png}
+        \caption{水平集函数}
     \end{figure}
